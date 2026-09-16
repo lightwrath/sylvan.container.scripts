@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+# Open a URL in the existing Firefox profile through Firefox's D-Bus interface.
+# Intended as BROWSER for xdg-open in a Wayland-only container.
+set -euo pipefail
+
+url=${1:?Usage: firefox-dbus-open <url>}
+
+firefox_service=$(
+    dbus-send --session --dest=org.freedesktop.DBus --type=method_call --print-reply \
+        / org.freedesktop.DBus.ListNames 2>/dev/null \
+        | awk -F'"' '/org\.mozilla\.firefox\./ { print $2; exit }'
+)
+
+# No existing Firefox service: use Firefox normally so it can create one.
+if [[ -z "$firefox_service" ]]; then
+    exec firefox "$url"
+fi
+
+# org.mozilla.firefox.OpenURL accepts a byte array (D-Bus type ay).
+url_bytes=$(printf '%s' "$url" | od -An -v -t x1 | awk '
+    {
+        for (i = 1; i <= NF; i++) {
+            printf "%sbyte 0x%s", separator, $i
+            separator = ", "
+        }
+    }
+')
+
+gdbus call --session --dest "$firefox_service" \
+    --object-path /org/mozilla/firefox/Remote \
+    --method org.mozilla.firefox.OpenURL "[$url_bytes]" >/dev/null
