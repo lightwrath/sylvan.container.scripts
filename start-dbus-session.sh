@@ -47,7 +47,8 @@ start_dbus_session() {
         {
             printf 'DBUS_SESSION_BUS_ADDRESS=%q\n' "$DBUS_SESSION_BUS_ADDRESS"
             printf 'DBUS_SESSION_BUS_PID=%q\n' "${DBUS_SESSION_BUS_PID:-}"
-        } >"$state_file"
+        # >| intentionally replaces our own state file when the shell enables noclobber.
+        } >|"$state_file"
         chmod 600 "$state_file"
     }
 
